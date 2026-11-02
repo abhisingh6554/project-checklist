@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Kickoff Checklist Builder v2</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+        .card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .form-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; }
+        label { display: block; font-weight: 600; margin-bottom: .4rem; font-size: 0.9rem; }
+        input, select { width: 100%; padding: .6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #0d6efd; color: white; padding: .6rem 1.2rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        button:hover { background-color: #0b5ed7; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5c636a; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+        th { background-color: #e9ecef; }
+        textarea { width: 100%; height: 220px; font-family: monospace; padding: .5rem; border-radius: 4px; border: 1px solid #ccc; }
+        .tab-container { margin-bottom: 1rem; }
+        .tab-btn { padding: .5rem 1rem; border: 1px solid #ccc; background: #f8f9fa; cursor: pointer; border-radius: 4px 4px 0 0; }
+        .tab-btn.active { background: #0d6efd; color: white; border-color: #0d6efd; }
+    </style>
+</head>
+<body>
+
+    <h2>Project Kickoff Checklist Builder</h2>
+    
+    <div class="card">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="projectName">Project Name</label>
+                <input type="text" id="projectName" placeholder="e.g., Website Redesign Launch">
+            </div>
+            <div class="form-group">
+                <label for="projectType">Project Type</label>
+                <select id="projectType">
+                    <option value="Marketing Campaign">Marketing Campaign</option>
+                    <option value="Software Release">Software Release</option>
+                    <option value="Content Production">Content Production</option>
+                    <option value="Event Planning">Event Planning</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="startDate">Start Date</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="form-group">
+                <label for="deadline">Final Deadline</label>
+                <input type="date" id="deadline">
+            </div>
+        </div>
+        <button onclick="generateChecklist()">Generate Dynamic Plan</button>
+    </div>
+
+    <div id="outputSection" style="display:none;">
+        <div class="tab-container">
+            <button class="tab-btn active" id="btnTable" onclick="switchView('table')">Interactive Table</button>
+            <button class="tab-btn" id="btnMd" onclick="switchView('markdown')">Markdown Code</button>
+        </div>
+
+        <div id="tableView"></div>
+        <div id="markdownView" style="display:none;">
+            <textarea id="markdownOutput" readonly></textarea>
+        </div>
+    </div>
+
+    <script>
+        // Set default start date to today
+        document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+
+        // Rule: strict business day shift (never lands on weekend)
+        function getPreviousBusinessDay(date) {
+            let d = new Date(date);
+            do {
+                d.setDate(d.getDate() - 1);
+            } while (d.getDay() === 0 || d.getDay() === 6);
+            return d;
+        }
+
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function generateChecklist() {
+            const name = document.getElementById('projectName').value;
+            const type = document.getElementById('projectType').value;
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('deadline').value;
+
+            if (!name || !startStr || !endStr) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const start = new Date(startStr);
+            const end = new Date(endStr);
+
+            if (end <= start) {
+                alert("Deadline must be after the start date.");
+                return;
+            }
+
+            // Calculate business day schedule working backward
+            const totalTime = end.getTime() - start.getTime();
+            
+            // Proportional checkpoints: 20% planning, 50% execution, 85% review, 100% launch
+            const planningDate = getPreviousBusinessDay(new Date(start.getTime() + totalTime * 0.20));
+            const executionDate = getPreviousBusinessDay(new Date(start.getTime() + totalTime * 0.50));
+            const reviewDate = getPreviousBusinessDay(new Date(start.getTime() + totalTime * 0.85));
+            let launchDate = new Date(end);
+            if (launchDate.getDay() === 0 || launchDate.getDay() === 6) {
+                launchDate = getPreviousBusinessDay(launchDate);
+            }
+
+            const tasks = [
+                { phase: "Planning", task: `Define target scope & objectives for ${type}`, date: formatDate(planningDate) },
+                { phase: "Planning", task: "Assign project roles & kickoff brief", date: formatDate(planningDate) },
+                { phase: "Execution", task: "Build core deliverables & draft assets", date: formatDate(executionDate) },
+                { phase: "Execution", task: "Internal review & mid-point alignment demo", date: formatDate(executionDate) },
+                { phase: "Review", task: "Quality assurance & stakeholder testing", date: formatDate(reviewDate) },
+                { phase: "Review", task: "Final edits, revisions & launch sign-off", date: formatDate(reviewDate) },
+                { phase: "Launch", task: `Official rollout of ${name}`, date: formatDate(launchDate) }
+            ];
+
+            // Render Markdown
+            let md = `| Phase | Task | Due Date | Status |\n| --- | --- | --- | --- |\n`;
+            tasks.forEach(t => { md += `| ${t.phase} | ${t.task} | ${t.date} | [ ] |\n`; });
+            document.getElementById('markdownOutput').value = md;
+
+            // Render Interactive Table
+            let html = `<table><thead><tr><th>Done</th><th>Phase</th><th>Task</th><th>Due Date</th></tr></thead><tbody>`;
+            tasks.forEach(t => {
+                html += `<tr>
+                    <td style="text-align:center;"><input type="checkbox"></td>
+                    <td><strong>${t.phase}</strong></td>
+                    <td contenteditable="true">${t.task}</td>
+                    <td><input type="date" value="${t.date}"></td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+            
+            document.getElementById('tableView').innerHTML = html;
+            document.getElementById('outputSection').style.display = 'block';
+        }
+
+        function switchView(view) {
+            if (view === 'table') {
+                document.getElementById('tableView').style.display = 'block';
+                document.getElementById('markdownView').style.display = 'none';
+                document.getElementById('btnTable').classList.add('active');
+                document.getElementById('btnMd').classList.remove('active');
+            } else {
+                document.getElementById('tableView').style.display = 'none';
+                document.getElementById('markdownView').style.display = 'block';
+                document.getElementById('btnMd').classList.add('active');
+                document.getElementById('btnTable').classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
